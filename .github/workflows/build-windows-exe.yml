@@ -1,0 +1,35 @@
+name: Build Windows EXE
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:  # 手動実行を許可
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pyinstaller PyQt5 openpyxl polars gdown mutagen
+
+    - name: Build with PyInstaller
+      run: |
+        pyinstaller --name m4a_report --windowed --onefile --add-data "【※サイト構築用※】音声テンプレ.xlsx;." --add-data "m4a;m4a" --hidden-import PyQt5.QtCore --hidden-import PyQt5.QtWidgets --hidden-import PyQt5.QtGui --hidden-import openpyxl --hidden-import polars --hidden-import gdown --hidden-import mutagen main.py
+
+    - name: Upload EXE
+      uses: actions/upload-artifact@v3
+      with:
+        name: m4a_report
+        path: dist/m4a_report.exe
