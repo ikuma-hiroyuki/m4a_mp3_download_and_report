@@ -3,7 +3,7 @@ import re
 import gdown
 from mutagen.mp3 import MP3
 from mutagen.mp4 import MP4
-import pandas as pd
+import polars as pl
 import requests
 import urllib.parse
 import shutil
@@ -180,6 +180,6 @@ class FileProcessor:
             })
 
         if data:
-            return pd.DataFrame(data)
+            return pl.DataFrame(data)
         else:
-            return pd.DataFrame(columns=['シート名', '行番号', 'ファイル名', '再生時間', 'ファイルパス'])
+            return pl.DataFrame(schema={'シート名': pl.Utf8, '行番号': pl.Int64, 'ファイル名': pl.Utf8, '再生時間': pl.Utf8, 'ファイルパス': pl.Utf8})

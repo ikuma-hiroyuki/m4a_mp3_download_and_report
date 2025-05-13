@@ -16,7 +16,6 @@ dependencies = [
     "polars>=0.18.0",
     "gdown>=4.6.0",
     "mutagen>=1.46.0",
-    "pandas>=2.0.3",
 ]
 
 [tool.setuptools]

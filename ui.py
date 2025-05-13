@@ -53,7 +53,7 @@ class WorkerThread(QThread):
             url = link_info['url']
 
             progress_percent = int((i / total_links) * 100)
-            self.update_progress.emit(progress_percent, f"処理中... ({i+1}/{total_links})")
+            self.update_progress.emit(progress_percent, f"処理中... ({i + 1}/{total_links})")
 
             # ファイルをダウンロード
             file_path, error = self.file_processor.download_file(url, sheet_name, row_num)
