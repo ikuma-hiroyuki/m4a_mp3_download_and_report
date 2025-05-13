@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "m4a_report"
+version = "0.1.0"
+description = "Googleドライブ共有リンクからファイルをダウンロードして分析するアプリ"
+authors = [
+    {name = "Author", email = "author@example.com"}
+]
+requires-python = ">=3.8"
+dependencies = [
+    "PyQt5>=5.15.0",
+    "openpyxl>=3.1.0",
+    "polars>=0.18.0",
+    "gdown>=4.6.0",
+    "mutagen>=1.46.0",
+]
+
+[project.scripts]
+m4a_report = "main:main"
+
+[tool.setuptools]
+packages = {find = {}}
