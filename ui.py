@@ -18,11 +18,12 @@ class WorkerThread(QThread):
     finished = pyqtSignal(bool, str)
     file_processed = pyqtSignal(str, int, str, str)  # シート名、行番号、ファイル名、結果
 
-    def __init__(self, excel_file, download_dir, selected_sheets):
+    def __init__(self, excel_file, download_dir, selected_sheets, check_l_column):
         super().__init__()
         self.excel_file = excel_file
         self.download_dir = download_dir
         self.selected_sheets = selected_sheets
+        self.check_l_column = check_l_column
         self.excel_processor = None
         self.file_processor = None
 
@@ -39,7 +40,7 @@ class WorkerThread(QThread):
         self.file_processor = FileProcessor(self.download_dir)
 
         # 選択されたシートからリンクを取得
-        links_data = self.excel_processor.get_links_from_sheets(self.selected_sheets)
+        links_data = self.excel_processor.get_links_from_sheets(self.selected_sheets, self.check_l_column)
         total_links = len(links_data)
 
         if total_links == 0:
@@ -74,11 +75,12 @@ class WorkerThread(QThread):
                 self.file_processed.emit(sheet_name, row_num, file_name, f"成功 (再生時間: {duration or '不明'})")
             else:
                 self.file_processed.emit(sheet_name, row_num, url, f"失敗: {error}")
+                break
 
         # 結果をシートに保存
         file_info_df = self.file_processor.get_file_info_dataframe()
-        if not file_info_df.empty:
-            success, error_msg = self.excel_processor.save_results_to_polars(file_info_df)
+        if file_info_df.height > 0:
+            success, error_msg = self.excel_processor.save_results(file_info_df)
             if not success:
                 self.update_progress.emit(90, f"結果シートの作成に失敗: {error_msg}")
         else:
@@ -148,8 +150,13 @@ class MainWindow(QMainWindow):
         sheet_content.setLayout(self.sheet_layout)
         sheet_scroll.setWidget(sheet_content)
 
+        # L列チェックボックスを追加
+        self.check_l_column = QCheckBox("L列(再生時間)に値がある行をスキップする")
+        self.check_l_column.setChecked(True)  # デフォルトでオン
+
         sheet_group_layout = QVBoxLayout()
         sheet_group_layout.addWidget(sheet_scroll)
+        sheet_group_layout.addWidget(self.check_l_column)
         sheet_group.setLayout(sheet_group_layout)
 
         # 処理状況表示エリア
@@ -250,7 +257,12 @@ class MainWindow(QMainWindow):
 
     def execute_process(self):
         # 処理の実行
-        self.worker = WorkerThread(self.excel_file, self.download_dir, self.selected_sheets)
+        self.worker = WorkerThread(
+            self.excel_file,
+            self.download_dir,
+            self.selected_sheets,
+            self.check_l_column.isChecked()
+        )
         self.worker.update_progress.connect(self.update_progress)
         self.worker.finished.connect(self.process_finished)
         self.worker.file_processed.connect(self.update_file_status)

@@ -1,4 +1,3 @@
-import polars as pl
 from openpyxl import load_workbook
 from openpyxl.worksheet.hyperlink import Hyperlink
 import utils
@@ -28,8 +27,13 @@ class ExcelProcessor:
         """利用可能なシート名のリストを返す"""
         return self.sheets
 
-    def get_links_from_sheets(self, target_sheets):
-        """指定されたシートからリンクを収集する"""
+    def get_links_from_sheets(self, target_sheets, check_l_column=True):
+        """指定されたシートからリンクを収集する
+
+        Args:
+            target_sheets: 処理対象のシート名リスト
+            check_l_column: Trueの場合、L列に値がある行をスキップする
+        """
         links_data = []
 
         for sheet_name in target_sheets:
@@ -37,8 +41,14 @@ class ExcelProcessor:
                 sheet = self.workbook[sheet_name]
                 for row_idx, row in enumerate(sheet.iter_rows(min_row=2), 2):  # ヘッダー行をスキップ
                     if len(row) >= 10:  # J列（10列目）が存在する場合
-                        cell = row[9]  # J列（インデックスは0から始まるので9）
-                        cell_value = cell.value
+                        cell_j = row[9]  # J列（インデックスは0から始まるので9）
+                        cell_value = cell_j.value
+
+                        # L列の値をチェック
+                        cell_l = row[11]
+                        cell_l_value = cell_l.value
+                        if check_l_column and cell_l_value:
+                            continue  # L列に値がある場合はスキップ
 
                         # セルの値がURLかどうかチェック
                         if cell_value and isinstance(cell_value, str) and "drive.google.com/file" in cell_value:
@@ -48,11 +58,11 @@ class ExcelProcessor:
                                 'url': cell_value
                             })
                         # ハイパーリンクがある場合
-                        elif cell.hyperlink and cell.hyperlink.target and "drive.google.com/file" in cell.hyperlink.target:
+                        elif cell_j.hyperlink and cell_j.hyperlink.target and "drive.google.com/file" in cell_j.hyperlink.target:
                             links_data.append({
                                 'sheet_name': sheet_name,
                                 'row_num': row_idx,
-                                'url': cell.hyperlink.target
+                                'url': cell_j.hyperlink.target
                             })
 
         return links_data
@@ -104,29 +114,26 @@ class ExcelProcessor:
         except Exception as e:
             return False, f"Excelファイル保存エラー: {str(e)}"
 
-    def save_results_to_polars(self, file_info_df):
+    def save_results(self, pl_df):
         """Polarsを使用して結果をresultsシートに保存する"""
         try:
-            # pandasデータフレームをpolarsデータフレームに変換
-            pl_df = pl.from_pandas(file_info_df)
-            print(f"Polarsデータフレーム作成: {pl_df.shape}")
-
-            # 既存のresultsシートを削除
+            # resultsシートの取得または作成
             if 'results' in self.workbook.sheetnames:
-                del self.workbook['results']
-                print("既存のresultsシートを削除しました")
-
-            # 新しいresultsシートを作成
-            results_sheet = self.workbook.create_sheet('results')
-            print("新しいresultsシートを作成しました")
+                # 既存のシートを取得
+                results_sheet = self.workbook['results']
+                print("既存のresultsシートを上書きします")
+            else:
+                # 新しいシートを作成
+                results_sheet = self.workbook.create_sheet('results')
+                print("新しいresultsシートを作成しました")
 
             # ヘッダーを設定
-            headers = file_info_df.columns.tolist()
+            headers = pl_df.columns
             for col_idx, header in enumerate(headers, 1):
                 results_sheet.cell(row=1, column=col_idx).value = header
 
-            # Polarsをリストに変換して一気に書き込み
-            data_rows = pl_df.to_numpy().tolist()
+            # Polarsデータフレームをリストに変換して一気に書き込み
+            data_rows = pl_df.rows()
             for row_idx, row_data in enumerate(data_rows, 2):
                 for col_idx, value in enumerate(row_data, 1):
                     results_sheet.cell(row=row_idx, column=col_idx).value = value
